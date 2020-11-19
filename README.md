@@ -9,6 +9,8 @@ $ git clone https://github.com/usagi-san-dayo/data-cleansing-App
 ```
 Or click a Code button top right on https://github.com/usagi-san-dayo/data-cleansing-App to download a zip file of this repository.
 
+**The file size is more than 1Gb. Make sure that you have enough memory before downloading.**
+
 ## How to launch this app
 A brief chart of this repository is as follows:
 ```
