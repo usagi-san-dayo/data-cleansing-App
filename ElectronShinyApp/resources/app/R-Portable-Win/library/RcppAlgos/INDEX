@@ -1,0 +1,26 @@
+RcppAlgos-package       High Performance Tools for Combinatorics and
+                        Computational Mathematics
+comboCount              Number of combinations/permutations
+comboGeneral            Generate Combinations and Permutations of a
+                        Vector with/without Constraints
+comboGroups             Partition a Vector into Groups of Equal Size
+comboGroupsCount        Number of Partitions of a Vector into Groups of
+                        Equal Size
+comboGroupsSample       Sample Partitions of a Vector into Groups of
+                        Equal Size
+comboIter               Combination and Permutation Iterator
+comboSample             Sample Combinations and Permutations
+divisorsRcpp            Vectorized Factorization (Complete)
+divisorsSieve           Generate Complete Factorization for Numbers in
+                        a Range
+eulerPhiSieve           Apply Euler's Phi Function to Every Element in
+                        a Range
+isPrimeRcpp             Vectorized Primality Test
+numDivisorSieve         Apply Divisor Function to Every Element in a
+                        Range
+primeCount              Prime Counting Function pi(x)
+primeFactorize          Vectorized Prime Factorization
+primeFactorizeSieve     Generate Prime Factorization for Numbers in a
+                        Range
+primeSieve              Generate Prime Numbers
+stdThreadMax            Max Number of Concurrent Threads
