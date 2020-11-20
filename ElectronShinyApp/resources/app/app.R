@@ -7,6 +7,8 @@ library(Rfast)
 source("UsagiSan.R")
 source("dataHandler.R")
 
+options(encoding = "UTF-8")
+
 # Define UI for application that draws a histogram
 ui <- navbarPage("Data-Cleansing App",
                  theme = "bootstrap.min.css",
@@ -136,10 +138,9 @@ server <- function(input, output, session) {
   isConflict_NApool <- FALSE
   isConflict <- reactiveValues(bool = isConflict_NApool)
   
-  #session$onSessionEnded(function() {
-  #  stopApp()
-  #  q("no")
-  #})
+  session$onSessionEnded(function() {
+    stopApp()
+  })
   observe(
     {
       change_colName(input$colName, input$newColName)

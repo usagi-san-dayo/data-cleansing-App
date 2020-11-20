@@ -1328,7 +1328,7 @@ dataCleanser <- function(dataName, dateFormat = list("/", "-"), append = FALSE, 
        asDatedVector <- rep(FALSE, nrow(data))
        haveNumber <- replace(rep(FALSE, nrow(data)), grep("[0-9]", data[, index]), TRUE)
        haveLeastNumStr <- nchar(data[, index]) > 4
-       delimiter <- nchar(gsub("[0-9]", "", data[, index])) == 2
+       delimiter <- nchar(gsub("[0-9]", "", data[, index])) == 2 | nchar(gsub("[0-9]", "", data[, index])) == 3 
        if (length(data[haveNumber & haveLeastNumStr & delimiter, index]) <= leastNumOfDate) {
          return(NULL)
        }
