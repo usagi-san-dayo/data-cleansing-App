@@ -1,6 +1,6 @@
-# data-cleansing-App
+# Data-cleansing-App
 The data cleansing App provides lots of functions on data-cleansing with R. This helps you organise datasets automatically and gives you various options for numerical, factorial, Date type objects. The data-organising algorithm is from the package called UdagiSan, which is available on my GitHub repository UsagiSan. I have made this package visually easier to use! 
-Also, this app dosen't need to prepare anything like R version and a browser type. You can use this just by double clicking a exe.file without environment-dependency.
+Also, this app dosen't require you to prepare anything like R version and a browser type. You can use this just by double clicking a exe.file without environment-dependency.
 
 ## Download
 There are several ways to download. For those who are used to git, make a clone of this repository in your local environment with command prompt(Win) or terminal(Mac).

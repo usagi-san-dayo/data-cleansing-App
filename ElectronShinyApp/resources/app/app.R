@@ -147,7 +147,7 @@ server <- function(input, output, session) {
       change_colName(input$colNameFactor, input$newColNameFactor)
       change_colName(input$colNameDate, input$newColNameDate)
       replaceWithMean(input$colName, input$numeric_NA)
-      replaceWithNA(input$colNameFactor, input$factor_NA, isConflict, session) 
+      replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, isConflict, session) 
       categorise(input$colName, input$categorise)
       poolLevels(input$colNameFactor, input$pool, input$order, session)
       orderLevels(input$colNameFactor, input$order, session)
@@ -206,12 +206,19 @@ server <- function(input, output, session) {
       if (!is.null(cleanser$cleansingForm$factor)) {
         row_startTable <- 3
         col_poolTable <- 7
+        print(length(input$factor_NA))
         table <- searchColname(cleanser$cleansingForm, input$colNameFactor)
         if (any(table[row_startTable : (nrow(table) - 1), col_poolTable] != "")) {
+          if (length(isRepByNA(cleanser$cleansingForm, colName)) == 0) {
+            updateCheckboxGroupInput(session, "factor_NA", "Choose any levels you want to replace with NA", choices = getLevels(cleanser$cleansingForm, input$colNameFactor), selected = character(0))
+          }
           isConflict$bool <- TRUE
         }
         else {
           isConflict$bool <- FALSE
+        }
+        if (isDelAllPool) {
+          replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, isConflict, session) 
         }
       }
     }
@@ -219,6 +226,7 @@ server <- function(input, output, session) {
   observeEvent(
     input$pool,{
       updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = delChoicesPool(cleanser$cleansingForm, input$colNameFactor, input$pool), selected = input$pool)
+      isDelAllPool <<- TRUE
       updateSelectInput(session, "order", paste0("Select as the 1st order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = character(0))
     }
   )

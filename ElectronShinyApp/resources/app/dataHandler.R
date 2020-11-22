@@ -4,6 +4,7 @@ cleanser$initialize()
 isColChanged_repMissVal <- FALSE
 isColChanged_pool <- FALSE
 isColChanged_order <- FALSE
+isDelAllPool <- FALSE
 
 searchColname <- function(cleansingForm, colName) {
   for (i in cleansingForm) {
@@ -70,13 +71,9 @@ getReplacedLevels <- function(cleansingForm, colName) {
 
 getPooledLevels <- function(cleansingForm, colName) {
   levels <- na.omit(getReplacedLevels(cleansingForm, colName))
-  #levels <- getReplacedLevels(cleansingForm, colName)
   if (is.null(levels) | length(levels) < 2) {
     return(character(0))
   }
-  #if (is.null(levels)){
-  #  return(NULL)
-  #}
   pooledLevels <- NULL
   for (i in 2 : length(levels)) {
     temp <- NULL
@@ -94,7 +91,6 @@ getPooledLevels <- function(cleansingForm, colName) {
 }
 
 delChoicesPool <- function(cleansingForm, colName, pool) {
-  #levels <- getLevels(cleansingForm, colName)
   levels <- na.omit(getReplacedLevels(cleansingForm, colName))
   pooledLevels <- strsplit(pool, "[+]")
   if (is.null(levels)) {
@@ -141,7 +137,6 @@ mkRepPoolLevels <- function(cleansingForm, colName) {
   repPoolLevels <- levels
   for (i in poolList) {
     levelsOrder <- gsub("[^0-9]", "", table[row_startTable : (nrow(table) - 1), col_levelsOrder])
-    #orderNchar <- order(nchar(dataLevels), decreasing = TRUE)
     temp <- NULL
     for (j in i) {
       temp <- paste0(temp, "+", levels[levelsOrder == j])
@@ -360,7 +355,7 @@ output_dataFactor <- function(dataset, colName, newColName, selected, options, s
   for(i in seq_len(length(repPoolLevels))) {
     ncharPool <- nchar(table[row_startTable : (nrow(table) - 1), col_poolTable])
     dupCheck_ncharPool <- nchar(gsub(i, "", table[row_startTable : (nrow(table) - 1), col_poolTable]))
-    if (length(repPoolLevels[(ncharPool == dupCheck_ncharPool) == FALSE]) != 1) {
+    if (length(repPoolLevels[!(ncharPool == dupCheck_ncharPool)]) > 1) {
       canPool <- FALSE
       break
     }
@@ -432,7 +427,7 @@ replaceWithMean <- function(colName, selected) {
   isColChanged_repMissVal <<- FALSE
 }
 
-replaceWithNA <- function(colName, selected, isConflict, session) {
+replaceWithNA <- function(colName, selected, pool, isConflict, session) {
   row_startTable <- 3
   col_startTable <- 3
   col_replacedWith <- 5
@@ -468,21 +463,14 @@ replaceWithNA <- function(colName, selected, isConflict, session) {
         }
       }
     }
-    if (isColChanged_pool) {
+    if (isColChanged_pool & length(pool) == 0) {
       updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = getPooledLevels(cleanser$cleansingForm, colName))
     }
   }
-  # }
-  #if (!is.null(cleanser$cleansingForm$factor)) {
-  #  row_startTable <- 3
-  #  col_poolTable <- 7
-  #  table <- searchColname(cleanser$cleansingForm, colName)
-  #  if (all(table[row_startTable : (nrow(table) - 1), col_poolTable] == "")) {
-  #    isConflict$bool <- FALSE
-  #  }
-  #}
+  if (isDelAllPool) {
+    isDelAllPool <<- FALSE
+  }
 }
-#updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = getPooledLevels(cleanser$cleansingForm, colName))
 
 categorise <- function(colName, categorise) {
   row_startTable <- 3
