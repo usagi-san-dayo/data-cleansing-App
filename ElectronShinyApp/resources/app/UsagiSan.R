@@ -983,7 +983,6 @@ cleansDate <- function(data, index, refData, dateFormat) {
 #' @encoding UTF-8
 #'
 #' @param dataName The file-name of a csv file that will be cleansed.
-#' @param dateFormat The format assigned to Date group.
 #' @param append Allows you to append the new datas generated from dataCleansingForm__.xlsx.
 #' @param numOrFac The criteria for classifying whether the column data is numeric or factor. If the number of levels are greater than the ratio (nrow(data)/numOrFac), then it will be assiged to numeric group.
 #' @param leastNumOfDate The criteria for classifying whether the column data is Date of numeric. if the data contains the dateFormat you have chosen and the number of data containing such formats is greater than this value, leastNumOfDate, then the data will be assigned to Date group.
@@ -991,11 +990,10 @@ cleansDate <- function(data, index, refData, dateFormat) {
 #'
 #' @importFrom data.table fread
 #' @export
-dataCleanser <- function(dataName, dateFormat = list("/", "-"), append = FALSE, numOrFac = 10, leastNumOfDate = 10, fileEncoding = "CP932") {
+dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate = 10, fileEncoding = "CP932") {
   files <- list.files()
   if (any(files == paste0("dataCleansingForm_", dataName, "_.xlsx")) == FALSE) {
     data <- as.data.frame(readData(dataName, fileEncoding))
-
     tableTime <- c("ColName", "Change the colName")
     tableNumeric <- c("ColName", "Change the colName", rep("", 6))
     tableFactor <- c("ColName", "Change the colName", rep("", 7))

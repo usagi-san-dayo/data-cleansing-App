@@ -1,10 +1,10 @@
 source("UsagiSan.R")
 cleanser <- new("dataCleansing")
 cleanser$initialize()
-isColChanged_repMissVal <- FALSE
-isColChanged_pool <- FALSE
-isColChanged_order <- FALSE
-isDelAllPool <- FALSE
+isColChanged_repMissVal <- TRUE
+isColChanged_repNA <- TRUE
+isColChanged_pool <- TRUE
+isColChanged_order <- TRUE
 
 searchColname <- function(cleansingForm, colName) {
   for (i in cleansingForm) {
@@ -195,9 +195,11 @@ isRepByMean <- function(cleansingForm, colName) {
   }
   if (nrow(table) > 3) {
     for (i in (row_startTable : (nrow(table) - 1))) {
+      options(warn = -1)
       if (table[i, 4] == mean(na.omit(as.numeric(cleanser$dataset[, colName])))) {
         selected <- append(selected, table[i, 2]) 
       }
+      options(warn = 0)
     }
   }
   if (is.null(selected)) {
@@ -278,6 +280,7 @@ output_dataNumeric <- function(dataset, colName, newColName, selected, options, 
           if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
             if (isRepMissVal) {
               if (!isColChanged_repMissVal) {
+                print("ddd")
                 cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
               }
             }
@@ -411,64 +414,67 @@ replaceWithMean <- function(colName, selected) {
     for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
       if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
         all_selected <- rep(FALSE, nrow(cleanser$cleansingForm[[i]][[j]]$table))
-        for (k in selected) {
+        sel <- selected
+        if (isColChanged_repMissVal) {  
+          sel <- isRepByMean(cleanser$cleansingForm, colName)
+        }
+        options(warn = -1)
+        for (k in sel) {
           is_selected <- replace(cleanser$cleansingForm[[i]][[j]]$table[, col_startTable] == k, c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
           cleanser$cleansingForm[[i]][[j]]$table[is_selected,  col_replacedWith] <<- mean(na.omit(as.numeric(cleanser$dataset[, colName])))
           all_selected <- all_selected | is_selected
         }
         not_inForm <- replace(cleanser$cleansingForm[[i]][[j]]$table[, col_startTable + 2] == mean(na.omit(as.numeric(cleanser$dataset[, colName]))), c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
+        options(warn = 0)
         not_selected <- replace(!all_selected & not_inForm, c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
-        if (!isColChanged_repMissVal) {
+        if (!isColChanged_repMissVal) {  
           cleanser$cleansingForm[[i]][[j]]$table[not_selected,  col_replacedWith] <<- ""
         }
       }
     }
   }
-  isColChanged_repMissVal <<- FALSE
+  print("come")
+  #isColChanged_repMissVal <<- FALSE
 }
 
-replaceWithNA <- function(colName, selected, pool, isConflict, session) {
+replaceWithNA <- function(colName, selected, pool, session) {
   row_startTable <- 3
   col_startTable <- 3
   col_replacedWith <- 5
   col_poolTable <- 7
   table <- searchColname(cleanser$cleansingForm, colName)
-  if (!is.null(table) & !is.null(isRepByNA(cleanser$cleansingForm, colName))) {
-    if (!isConflict$bool & length(selected) < length(isRepByNA(cleanser$cleansingForm, colName)) & any(table[row_startTable : (nrow(table) - 1), col_poolTable] != "")) {
-      isConflict$bool <- TRUE
-    }
+  if (is.null(table)) {
+    return()
   }
-  if (isConflict$bool) {
-    updateCheckboxGroupInput(session, "factor_NA", "Choose any levels you want to replace with NA", choices = getLevels(cleanser$cleansingForm, colName), selected = isRepByNA(cleanser$cleansingForm, colName))
-    #showNotification("Remove all selected pools before replacing")
+  if (any(table[row_startTable : (nrow(table) - 1), col_poolTable] != "" ) & length(pool) > 0 & length(selected) != length(isRepByNA(cleanser$cleansingForm, colName))) {
+    showNotification("Remove all selected pools before replacing")
   }
   else {
-    if (!is.null(table)) {
-      if (any(table[row_startTable : (nrow(table) - 1), col_poolTable] != "")) {
-        selected <- isRepByNA(cleanser$cleansingForm, colName)
-      }
-    }
     for (i in seq_len(length(cleanser$cleansingForm))) {
       for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
         if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
+          sel <- selected
+          if (isColChanged_repNA) {
+            sel <- isRepByNA(cleanser$cleansingForm, colName)
+          }
           all_selected <- rep(FALSE, nrow(cleanser$cleansingForm[[i]][[j]]$table))
-          for (k in selected) {
+          for (k in sel) {
             is_selected <- replace(cleanser$cleansingForm[[i]][[j]]$table[, col_startTable] == k, c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
             cleanser$cleansingForm[[i]][[j]]$table[is_selected,  col_replacedWith] <<- "N/A"
             all_selected <- all_selected | is_selected
           }
           not_inForm <- replace(cleanser$cleansingForm[[i]][[j]]$table[, col_replacedWith] == "N/A", c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
           not_selected <- replace(!all_selected & not_inForm, c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
-          cleanser$cleansingForm[[i]][[j]]$table[not_selected,  col_replacedWith] <<- ""
+          if (!isColChanged_repMissVal) {  
+            cleanser$cleansingForm[[i]][[j]]$table[not_selected,  col_replacedWith] <<- ""
+          }
         }
       }
     }
-    if (isColChanged_pool & length(pool) == 0) {
+    if (isColChanged_pool & length(pool) == 0 & length(selected) > 0 & all(table[row_startTable : (nrow(table) - 1), col_poolTable] == "")) {
+      print("hi")
       updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = getPooledLevels(cleanser$cleansingForm, colName))
     }
-  }
-  if (isDelAllPool) {
-    isDelAllPool <<- FALSE
   }
 }
 

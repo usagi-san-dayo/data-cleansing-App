@@ -4,7 +4,6 @@ library(DT)
 library(rhandsontable)
 library(Rfast)
 
-source("UsagiSan.R")
 source("dataHandler.R")
 
 options(encoding = "UTF-8")
@@ -135,19 +134,18 @@ server <- function(input, output, session) {
   preDataValues <- reactiveValues(data = previewData)
   volumes <- getVolumes()
   shinyDirChoose(input, "dir", roots = getVolumes()(), filetypes = c("", "txt"))
-  isConflict_NApool <- FALSE
-  isConflict <- reactiveValues(bool = isConflict_NApool)
   
   session$onSessionEnded(function() {
     stopApp()
   })
   observe(
     {
+      print(isColChanged_repMissVal)
       change_colName(input$colName, input$newColName)
       change_colName(input$colNameFactor, input$newColNameFactor)
       change_colName(input$colNameDate, input$newColNameDate)
       replaceWithMean(input$colName, input$numeric_NA)
-      replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, isConflict, session) 
+      replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, session) 
       categorise(input$colName, input$categorise)
       poolLevels(input$colNameFactor, input$pool, input$order, session)
       orderLevels(input$colNameFactor, input$order, session)
@@ -180,6 +178,7 @@ server <- function(input, output, session) {
     input$colName,{
       if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
         updateTextInput(session, "newColName", "Change the colname to", searchColname(cleanser$cleansingForm, input$colName)[1, 2])
+        print("gn")
         isColChanged_repMissVal <<- TRUE
         updateCheckboxGroupInput(session, "numeric_NA", "Choose any missing-values you want to replace with the mean", choices = getMissValues(cleanser$cleansingForm, input$colName), selected = isRepByMean(cleanser$cleansingForm, input$colName))
         updateCheckboxInput(session, "categorise", "Categorise", value = isCategorised(cleanser$cleansingForm, input$colName))
@@ -190,6 +189,7 @@ server <- function(input, output, session) {
     input$colNameFactor,{
       if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0))) {
         updateTextInput(session, "newColNameFactor", "Change the colname to", searchColname(cleanser$cleansingForm, input$colNameFactor)[1, 2])
+        isColChanged_repNA <<- TRUE
         updateCheckboxGroupInput(session, "factor_NA", "Choose any levels you want to replace with NA", choices = getLevels(cleanser$cleansingForm, input$colNameFactor), selected = isRepByNA(cleanser$cleansingForm, input$colNameFactor))
         selectedPools <-  unique(mkRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)[grep("[+]", mkRepPoolLevels(cleanser$cleansingForm, input$colNameFactor))])
         updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = delChoicesPool(cleanser$cleansingForm, input$colNameFactor, selectedPools), selected = selectedPools)
@@ -201,32 +201,10 @@ server <- function(input, output, session) {
       }
     }
   )
-  observeEvent(
-    input$factor_NA,{
-      if (!is.null(cleanser$cleansingForm$factor)) {
-        row_startTable <- 3
-        col_poolTable <- 7
-        print(length(input$factor_NA))
-        table <- searchColname(cleanser$cleansingForm, input$colNameFactor)
-        if (any(table[row_startTable : (nrow(table) - 1), col_poolTable] != "")) {
-          if (length(isRepByNA(cleanser$cleansingForm, colName)) == 0) {
-            updateCheckboxGroupInput(session, "factor_NA", "Choose any levels you want to replace with NA", choices = getLevels(cleanser$cleansingForm, input$colNameFactor), selected = character(0))
-          }
-          isConflict$bool <- TRUE
-        }
-        else {
-          isConflict$bool <- FALSE
-        }
-        if (isDelAllPool) {
-          replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, isConflict, session) 
-        }
-      }
-    }
-  )
+
   observeEvent(
     input$pool,{
       updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = delChoicesPool(cleanser$cleansingForm, input$colNameFactor, input$pool), selected = input$pool)
-      isDelAllPool <<- TRUE
       updateSelectInput(session, "order", paste0("Select as the 1st order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = character(0))
     }
   )
@@ -248,17 +226,19 @@ server <- function(input, output, session) {
     }
   })
   output$preview <- renderDataTable({
-    if (all(dim(cleanser$dataset) == c(0, 0))) {
+    if (any(dim(cleanser$dataset) != c(0, 0))) {
       previewDataset <- datatable(preDataValues$data, options = list(scrollX = TRUE, scrollY = "75vh", scrollCollapse = TRUE))
     }
   })
   output$options <- renderRHandsontable({ 
     if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+      isColChanged_repMissVal <<- FALSE
       rhandsontable(dataValues$data)
     }
   })
   output$optionsFactor <- renderRHandsontable({
     if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0))) {
+      isColChanged_repNA <<- FALSE
       rhandsontable(dataValuesFactor$data)
     }
   })
@@ -285,7 +265,7 @@ server <- function(input, output, session) {
   output$downloadSave <- downloadHandler(
     filename = paste0("data", ".zip"),
     content = function(file) {
-      if (all(dim(cleanser$dataset) == c(0, 0)) & !is.null(input$dir)) {
+      if (any(dim(cleanser$dataset) != c(0, 0)) & !is.null(input$dir)) {
         output_cleansingForm(file, gsub("\\.csv", "", input$file$name), volumes, input$dir, cleanser$cleansingForm, input$encode)
       }
     },
@@ -295,4 +275,5 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
 
