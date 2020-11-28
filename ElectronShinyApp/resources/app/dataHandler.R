@@ -343,7 +343,7 @@ output_dataFactor <- function(dataset, colName, newColName, selected, pool, orde
   return(bottom_table)
 }
 
-output_dataDate <- function(dataset, colName, newColName) {
+output_dataDate <- function(dataset, colName, newColName, options) {
   table <- searchColname(cleanser$cleansingForm, colName)
   bottom_table <- as.data.frame(dataset[, colName])
   if (newColName != "") {
@@ -352,6 +352,8 @@ output_dataDate <- function(dataset, colName, newColName) {
   else {
     colnames(bottom_table) <- colName
   }
+  tempColName <- colName
+  tempOptions <- options
   return(bottom_table)
 }
 
@@ -396,6 +398,26 @@ formHandler_factor <- function(options, colName) {
               if (!isColChanged_repNA & !isColChanged_pool & !isColChanged_order) {
                 cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
               }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+formHandler_Date <- function(options, colName) {
+  if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0)) & colName != "") {
+    table <- searchColname(cleanser$cleansingForm, colName)
+    if (!is.null(options$changes$changes)) {
+      changedRow <- options$changes$changes[[1]][[1]]
+      changedCol <- options$changes$changes[[1]][[2]]
+      isColName <- changedRow == 0 & changedCol == 1
+      if (isColName) { 
+        for (i in seq_len(length(cleanser$cleansingForm))) {
+          for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
+            if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
+                cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
             }
           }
         }

@@ -287,6 +287,14 @@ server <- function(input, output, session) {
     },
     ignoreNULL = FALSE
   )
+  observeEvent(
+    input$optionsDate,{
+      formHandler_Date(input$optionsDate, input$colNameDate)
+      dataValuesDate$data <- right_tableManager(dataValuesDate, input$colNameDate)
+    },
+    ignoreNULL = FALSE
+  )
+  
   output$selectedDir <- renderText({
     if(!is.null(input$dir)){
       dirInfo <- parseDirPath(volumes, input$dir)
@@ -334,7 +342,7 @@ server <- function(input, output, session) {
   })
   output$viewDate <- renderDataTable({
     if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0)) & input$colNameDate != "") {
-      datasetDate <- datatable(output_dataDate(cleanser$dataset, input$colNameDate, input$newColNameDate), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
+      datasetDate <- datatable(output_dataDate(cleanser$dataset, input$colNameDate, input$newColNameDate, input$optionsDate), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
     }
   })
   output$downloadSave <- downloadHandler(
