@@ -5,6 +5,8 @@ isColChanged_repMissVal <- TRUE
 isColChanged_repNA <- TRUE
 isColChanged_pool <- TRUE
 isColChanged_order <- TRUE
+out_formnumeric <- FALSE
+out_formfactor <- FALSE
 
 searchColname <- function(cleansingForm, colName) {
   for (i in cleansingForm) {
@@ -91,6 +93,9 @@ getPooledLevels <- function(cleansingForm, colName) {
 }
 
 delChoicesPool <- function(cleansingForm, colName, pool) {
+  if (is.null(pool)) {
+    pool <- character(0)
+  }
   levels <- na.omit(getReplacedLevels(cleansingForm, colName))
   pooledLevels <- strsplit(pool, "[+]")
   if (is.null(levels)) {
@@ -260,38 +265,15 @@ output_dataNumeric <- function(dataset, colName, newColName, selected, options, 
   table <- searchColname(cleanser$cleansingForm, colName)
   bottom_table <- as.data.frame(dataset[, colName])
   if (newColName != "") {
-    colnames(bottom_table) <- searchColname(cleanser$cleansingForm, colName)[1, 2]
+    colnames(bottom_table) <- newColName
   }
   else {
     colnames(bottom_table) <- colName
   }
-  if (!is.null(options$changes$changes)) {
-    changedRow <- options$changes$changes[[1]][[1]]
-    changedCol <- options$changes$changes[[1]][[2]]
-    isColName <- changedRow == 0 & changedCol == 1
-    isRepMissVal <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 3
-    isCategorised <- changedRow == 2 & changedCol == 5 | changedRow == 2 & changedCol == 7 
-    if (isColName | isRepMissVal | isCategorised) { 
-      if (isColName) {
-        colnames(bottom_table) <- options$changes$changes[[1]][[4]]
-      }
-      for (i in seq_len(length(cleanser$cleansingForm))) {
-        for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
-          if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
-            if (isRepMissVal) {
-              if (!isColChanged_repMissVal) {
-                print("ddd")
-                cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
-              }
-            }
-            else {
-              cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
-            }
-          }
-        }
-      }
-    }
-  }
+  tempColName <- newColName
+  tempSelected <- selected
+  tempOptions <- options
+  
   table <- searchColname(cleanser$cleansingForm, colName)
   
   row_startTable <- 3
@@ -315,7 +297,7 @@ output_dataNumeric <- function(dataset, colName, newColName, selected, options, 
   return(bottom_table)
 }
 
-output_dataFactor <- function(dataset, colName, newColName, selected, options, session) {
+output_dataFactor <- function(dataset, colName, newColName, selected, pool, order, options, session) {
   table <- searchColname(cleanser$cleansingForm, colName)
   bottom_table <- as.data.frame(dataset[, colName])
   if (newColName != "") {
@@ -324,26 +306,12 @@ output_dataFactor <- function(dataset, colName, newColName, selected, options, s
   else {
     colnames(bottom_table) <- colName
   }
-  if (!is.null(options$changes$changes)) {
-    changedRow <- options$changes$changes[[1]][[1]]
-    changedCol <- options$changes$changes[[1]][[2]]
-    isColName <- changedRow == 0 & changedCol == 1
-    isRepByNA <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 4
-    isPooled <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 6
-    isOrdered <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 8
-    if (isColName | isRepByNA | isPooled | isOrdered) { 
-      if (isColName) {
-        colnames(bottom_table) <- options$changes$changes[[1]][[4]]
-      }
-      for (i in seq_len(length(cleanser$cleansingForm))) {
-        for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
-          if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
-            cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
-          }
-        }
-      }
-    }
-  }
+  tempColName <- colName
+  tempSelected <- selected
+  tempPool <- pool
+  tempOrder <- order
+  tempOptions <- options
+  
   table <- searchColname(cleanser$cleansingForm, colName)
   repPoolLevels <- getRepPoolLevels(cleanser$cleansingForm, colName)
   
@@ -385,6 +353,55 @@ output_dataDate <- function(dataset, colName, newColName) {
     colnames(bottom_table) <- colName
   }
   return(bottom_table)
+}
+
+formHandler_numeric <- function(options, colName) {
+  if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0)) & colName != "") {
+    table <- searchColname(cleanser$cleansingForm, colName)
+    if (!is.null(options$changes$changes)) {
+      changedRow <- options$changes$changes[[1]][[1]]
+      changedCol <- options$changes$changes[[1]][[2]]
+      isColName <- changedRow == 0 & changedCol == 1
+      isRepMissVal <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 3
+      isCategorised <- changedRow == 2 & changedCol == 5 | changedRow == 2 & changedCol == 7 
+      if (isColName | isRepMissVal | isCategorised) { 
+        for (i in seq_len(length(cleanser$cleansingForm))) {
+          for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
+            if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
+              if (!isColChanged_repMissVal) {
+                cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+formHandler_factor <- function(options, colName) {
+  if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0)) & colName != "") {
+    table <- searchColname(cleanser$cleansingForm, colName)
+    if (!is.null(options$changes$changes)) {
+      changedRow <- options$changes$changes[[1]][[1]]
+      changedCol <- options$changes$changes[[1]][[2]]
+      isColName <- changedRow == 0 & changedCol == 1
+      isRepByNA <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 4
+      isPooled <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 6
+      isOrdered <- (changedRow > 1 & changedRow < (nrow(table) - 1)) & changedCol == 8
+      if (isColName | isRepByNA | isPooled | isOrdered) { 
+        for (i in seq_len(length(cleanser$cleansingForm))) {
+          for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
+            if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
+              if (!isColChanged_repNA & !isColChanged_pool & !isColChanged_order) {
+                cleanser$cleansingForm[[i]][[j]]$table[changedRow + 1, changedCol + 1] <<- options$changes$changes[[1]][[4]]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 init_inputCol <- function(inputCol) {
@@ -433,8 +450,6 @@ replaceWithMean <- function(colName, selected) {
       }
     }
   }
-  print("come")
-  #isColChanged_repMissVal <<- FALSE
 }
 
 replaceWithNA <- function(colName, selected, pool, session) {
@@ -465,15 +480,11 @@ replaceWithNA <- function(colName, selected, pool, session) {
           }
           not_inForm <- replace(cleanser$cleansingForm[[i]][[j]]$table[, col_replacedWith] == "N/A", c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
           not_selected <- replace(!all_selected & not_inForm, c(1 : (row_startTable - 1), nrow(cleanser$cleansingForm[[i]][[j]]$table)), FALSE)
-          if (!isColChanged_repMissVal) {  
+          if (!isColChanged_repNA) {  
             cleanser$cleansingForm[[i]][[j]]$table[not_selected,  col_replacedWith] <<- ""
           }
         }
       }
-    }
-    if (isColChanged_pool & length(pool) == 0 & length(selected) > 0 & all(table[row_startTable : (nrow(table) - 1), col_poolTable] == "")) {
-      print("hi")
-      updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = getPooledLevels(cleanser$cleansingForm, colName))
     }
   }
 }
@@ -543,7 +554,6 @@ poolLevels <- function(colName, pool, order, session) {
     numOrder <- mkOrdinal(order) 
     updateSelectInput(session, "order", paste0("Select as the ", numOrder, " order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, colName)), selected = order)
   }
-  isColChanged_pool <<- FALSE
 }
 
 orderLevels <- function(colName, order, session) {
@@ -579,18 +589,17 @@ orderLevels <- function(colName, order, session) {
     numOrder <- mkOrdinal(order) 
     updateSelectInput(session, "order", paste0("Select as the ", numOrder, " order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, colName)), selected = order)
   }
-  isColChanged_order <<- FALSE
 }
 
-change_colName <- function(colName, newColName) {
-  for (i in seq_len(length(cleanser$cleansingForm))) {
-    for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
-      if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
+changeColName_numeric <- function(colName, newColName) {
+  if(!is.null(searchColname(cleanser$cleansingForm, colName))) {
+    for (i in seq_len(length(cleanser$cleansingForm$numeric))) {
+      if (cleanser$cleansingForm$numeric[[i]]$colname == colName) {
         if (newColName == "") {
-          cleanser$cleansingForm[[i]][[j]]$table[1, 2] <<- ""
+          cleanser$cleansingForm$numeric[[i]]$table[1, 2] <<- ""
         }
         else {
-          cleanser$cleansingForm[[i]][[j]]$table[1, 2] <<- newColName 
+          cleanser$cleansingForm$numeric[[i]]$table[1, 2] <<- newColName 
         }
         return()
       }
@@ -598,15 +607,40 @@ change_colName <- function(colName, newColName) {
   }
 }
 
-right_tableManager <- function(dataValues, colName, newColName) {
-  if (newColName != "") {
-    dataFrame <- searchColname(cleanser$cleansingForm, colName)
-    dataFrame[1, 2] <- newColName
-    dataValues$data <- dataFrame
+changeColName_factor <- function(colName, newColName) {
+  if(!is.null(searchColname(cleanser$cleansingForm, colName))) {
+    for (i in seq_len(length(cleanser$cleansingForm$factor))) {
+      if (cleanser$cleansingForm$factor[[i]]$colname == colName) {
+        if (newColName == "") {
+          cleanser$cleansingForm$factor[[i]]$table[1, 2] <<- ""
+        }
+        else {
+          cleanser$cleansingForm$factor[[i]]$table[1, 2] <<- newColName 
+        }
+        return()
+      }
+    }
   }
-  else {
-    dataValues$data <- searchColname(cleanser$cleansingForm, colName)
+}
+
+changeColName_Date <- function(colName, newColName) {
+  if(!is.null(searchColname(cleanser$cleansingForm, colName))) {
+    for (i in seq_len(length(cleanser$cleansingForm$Date))) {
+      if (cleanser$cleansingForm$Date[[i]]$colname == colName) {
+        if (newColName == "") {
+          cleanser$cleansingForm$Date[[i]]$table[1, 2] <<- ""
+        }
+        else {
+          cleanser$cleansingForm$Date[[i]]$table[1, 2] <<- newColName 
+        }
+        return()
+      }
+    }
   }
+}
+
+right_tableManager <- function(dataValues, colName) {
+  dataValues$data <- searchColname(cleanser$cleansingForm, colName)
   return(dataValues$data)
 }
 
@@ -656,11 +690,12 @@ scanData <- function(file, volumes, dir, numFac, numDate, encode, session) {
   else {
     saveLocation <- "../saves/"
   }
-  cleanser$mkCleansingForm(gsub("\\.csv", "", file$name), gsub(".csv", "", file$datapath), numFac, numDate, encode, saveLocation)
+  cleanser$fileInfo$name <<- file$name
+  cleanser$mkCleansingForm(gsub("\\.csv", "", file$name), gsub("\\.csv", "", file$datapath), numFac, numDate, encode, saveLocation)
   tabPanelInit(session)
 }
 
-output_cleansingForm <- function(file, filePath, volumes, dir, cleansingForm, fileEncoding) {
+output_cleansingForm <- function(file, fileInfo, volumes, dir, cleansingForm, fileEncoding) {
   saveLocation <- ""
   if (length(parseDirPath(volumes, dir)) > 0) {
     saveLocation <- paste0(parseDirPath(volumes, dir), "/")
@@ -672,10 +707,22 @@ output_cleansingForm <- function(file, filePath, volumes, dir, cleansingForm, fi
   formNumeric <- forms$numeric
   formFactor <- forms$factor
   formDate <- forms$Date
-  cleanser$writeTablesOnExcel(formNumeric, formFactor, formDate, filePath, saveLocation)
-  cleansedData <- cleanser$dataCleanser(paste0(saveLocation, filePath), fileEncoding = fileEncoding)
-  save(cleansedData, file = paste0(paste0(saveLocation, filePath), ".rda"))
-  zip(zipfile = file, files = c(paste0(saveLocation, "dataCleansingForm_", filePath, "_.xlsx"), paste0(saveLocation, filePath, ".rda")))
+  cleanser$writeTablesOnExcel(formNumeric, formFactor, formDate, gsub("\\.csv", "", fileInfo$name), saveLocation)
+  cleansedData <- cleanser$dataCleanser(gsub("\\.csv", "", fileInfo$name), fileEncoding = fileEncoding, path = saveLocation)
+  if (fileEncoding == "Others") {
+    write.csv(cleansedData, paste0(saveLocation, "Cleansed_DataSet_", gsub("\\.csv", "", fileInfo$name), ".csv"), row.names = FALSE, fileEncoding = "CP932")
+  }
+  else {
+    write.csv(cleansedData, paste0(saveLocation, "Cleansed_DataSet_", gsub("\\.csv", "", fileInfo$name), ".csv"), row.names = FALSE, fileEncoding = fileEncoding)
+    
+  }
+  save(cleansedData, file = paste0(saveLocation, "Cleansed_DataFrame_", gsub("\\.csv", "", fileInfo$name), ".rda"))
+  files <- c(paste0("dataCleansingForm_", gsub("\\.csv", "", fileInfo$name), "_.xlsx"), paste0("Cleansed_DataSet_", fileInfo$name), fileInfo$name, paste0("Cleansed_DataFrame_", gsub("\\.csv", "", fileInfo$name), ".rda"))
+  originPath <- getwd()
+  setwd(saveLocation)
+  zipFile <- zip(zipfile = file, files)
+  setwd(originPath)
+  zipFile
 }
 
 mkPreviewData <- function(data, cleansingForm, append) {

@@ -3,7 +3,7 @@ library(shinyFiles)
 library(DT)
 library(rhandsontable)
 library(Rfast)
-
+library(shinyjs)
 source("dataHandler.R")
 
 options(encoding = "UTF-8")
@@ -116,7 +116,6 @@ ui <- navbarPage("Data-Cleansing App",
                               )
                             )
                           )
-                          #)
                  )
 )
 
@@ -138,23 +137,6 @@ server <- function(input, output, session) {
   session$onSessionEnded(function() {
     stopApp()
   })
-  observe(
-    {
-      print(isColChanged_repMissVal)
-      change_colName(input$colName, input$newColName)
-      change_colName(input$colNameFactor, input$newColNameFactor)
-      change_colName(input$colNameDate, input$newColNameDate)
-      replaceWithMean(input$colName, input$numeric_NA)
-      replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, session) 
-      categorise(input$colName, input$categorise)
-      poolLevels(input$colNameFactor, input$pool, input$order, session)
-      orderLevels(input$colNameFactor, input$order, session)
-      print(input$colName)
-      dataValues$data <- right_tableManager(dataValues, input$colName, input$newColName)
-      dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor, input$newColNameFactor)
-      dataValuesDate$data <- right_tableManager(dataValuesDate, input$colNameDate, input$newColNameDate)
-    }
-  )
   observeEvent(
     input$file,{
       csvFile <- cleanser$readData(gsub("\\.csv", "", input$file$datapath), input$encode)
@@ -178,12 +160,22 @@ server <- function(input, output, session) {
     input$colName,{
       if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
         updateTextInput(session, "newColName", "Change the colname to", searchColname(cleanser$cleansingForm, input$colName)[1, 2])
-        print("gn")
         isColChanged_repMissVal <<- TRUE
         updateCheckboxGroupInput(session, "numeric_NA", "Choose any missing-values you want to replace with the mean", choices = getMissValues(cleanser$cleansingForm, input$colName), selected = isRepByMean(cleanser$cleansingForm, input$colName))
         updateCheckboxInput(session, "categorise", "Categorise", value = isCategorised(cleanser$cleansingForm, input$colName))
+        dataValues$data <- right_tableManager(dataValues, input$colName)
       }
-    }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$newColName,{
+      if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+        changeColName_numeric(input$colName, input$newColName)
+        dataValues$data <- right_tableManager(dataValues, input$colName)
+      }
+    },
+    ignoreNULL = FALSE
   )
   observeEvent(
     input$colNameFactor,{
@@ -198,21 +190,102 @@ server <- function(input, output, session) {
         updateSelectInput(session, "order", paste0("Select as the ", numOrder, " order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = selectedOrder)
         isColChanged_pool <<- TRUE
         isColChanged_order <<- TRUE
+        dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
       }
-    }
+    },
+    ignoreNULL = FALSE
   )
-
+  observeEvent(
+    input$newColNameFactor,{
+      if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0))) {
+        changeColName_factor(input$colNameFactor, input$newColNameFactor)
+        dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
+      }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$colNameDate,{
+      if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0))) {
+        dataValuesDate$data <- right_tableManager(dataValuesDate, input$colNameDate)
+      }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$newColNameDate,{
+      if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0))) {
+        changeColName_Date(input$colNameDate, input$newColNameDate)
+        dataValuesDate$data <- right_tableManager(dataValuesDate, input$colNameDate)
+      }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$numeric_NA,{
+      if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+        replaceWithMean(input$colName, input$numeric_NA)
+        dataValues$data <- right_tableManager(dataValues, input$colName)
+      }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$categorise,{
+      if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+        categorise(input$colName, input$categorise)
+        dataValues$data <- right_tableManager(dataValues, input$colName)
+      }
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$factor_NA,{
+      row_startTable <- 3
+      col_poolTable <- 7
+      replaceWithNA(input$colNameFactor, input$factor_NA, input$pool, session)
+      table <- searchColname(cleanser$cleansingForm, input$colNameFactor)
+      if (!is.null(table)) {
+        if (length(input$pool) == 0 & length(input$factor_NA) > 0 & all(table[row_startTable : (nrow(table) - 1), col_poolTable] == "")) {
+          updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = getPooledLevels(cleanser$cleansingForm, input$colNameFactor))
+        }
+      }
+      updateSelectInput(session, "order", paste0("Select as the 1st order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = character(0))
+      dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
+    },
+    ignoreNULL = FALSE
+  )
   observeEvent(
     input$pool,{
       updateSelectInput(session, "pool", "Select any combinations of pooled levels", choices = delChoicesPool(cleanser$cleansingForm, input$colNameFactor, input$pool), selected = input$pool)
+      poolLevels(input$colNameFactor, input$pool, input$order, session)
       updateSelectInput(session, "order", paste0("Select as the 1st order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = character(0))
-    }
+      dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
+    },
+    ignoreNULL = FALSE
   )
   observeEvent(
     input$order,{
       numOrder <- mkOrdinal(input$order) 
       updateSelectInput(session, "order", paste0("Select as the ", numOrder, " order"), choices = na.omit(getRepPoolLevels(cleanser$cleansingForm, input$colNameFactor)), selected = input$order)
-    }
+      orderLevels(input$colNameFactor, input$order, session)
+      dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$options,{
+      formHandler_numeric(input$options, input$colName)
+      dataValues$data <- right_tableManager(dataValues, input$colName)
+    },
+    ignoreNULL = FALSE
+  )
+  observeEvent(
+    input$optionsFactor,{
+      formHandler_factor(input$optionsFactor, input$colNameFactor)
+      dataValuesFactor$data <- right_tableManager(dataValuesFactor, input$colNameFactor)
+    },
+    ignoreNULL = FALSE
   )
   output$selectedDir <- renderText({
     if(!is.null(input$dir)){
@@ -231,42 +304,44 @@ server <- function(input, output, session) {
     }
   })
   output$options <- renderRHandsontable({ 
-    if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+    if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0)) & input$colName != "") {
       isColChanged_repMissVal <<- FALSE
       rhandsontable(dataValues$data)
     }
   })
   output$optionsFactor <- renderRHandsontable({
-    if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0))) {
+    if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0)) & input$colNameFactor != "") {
       isColChanged_repNA <<- FALSE
+      isColChanged_pool <<- FALSE
+      isColChanged_order <<- FALSE
       rhandsontable(dataValuesFactor$data)
     }
   })
   output$optionsDate <- renderRHandsontable({
-    if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0))) {
+    if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0)) & input$colNameDate != "") {
       rhandsontable(dataValuesDate$data)
     }
   })
   output$view <- renderDataTable({
-    if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0))) {
+    if (!is.null(cleanser$cleansingForm$numeric) & any(dim(cleanser$dataset) != c(0, 0)) & input$colName != "") {
       dataset <- datatable(output_dataNumeric(cleanser$dataset, input$colName, input$newColName, input$numeric_NA, input$options, session), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
     }
   })
   output$viewFactor <- renderDataTable({
-    if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0))) {
-      datasetFactor <- datatable(output_dataFactor(cleanser$dataset, input$colNameFactor, input$newColNameFactor, input$factor_NA, input$optionsFactor, session), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
+    if (!is.null(cleanser$cleansingForm$factor) & any(dim(cleanser$dataset) != c(0, 0)) & input$colNameFactor != "") {
+      datasetFactor <- datatable(output_dataFactor(cleanser$dataset, input$colNameFactor, input$newColNameFactor, input$factor_NA, input$pool, input$order, input$optionsFactor, session), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
     }
   })
   output$viewDate <- renderDataTable({
-    if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0))) {
-      datasetDate <- datatable(output_dataDate(cleanser$dataset, input$colNameDate, input$newColNameDate),   options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
+    if (!is.null(cleanser$cleansingForm$Date) & any(dim(cleanser$dataset) != c(0, 0)) & input$colNameDate != "") {
+      datasetDate <- datatable(output_dataDate(cleanser$dataset, input$colNameDate, input$newColNameDate), options = list(scrollX = TRUE, scrollY = "60vh", scrollCollapse = TRUE))
     }
   })
   output$downloadSave <- downloadHandler(
     filename = paste0("data", ".zip"),
     content = function(file) {
-      if (any(dim(cleanser$dataset) != c(0, 0)) & !is.null(input$dir)) {
-        output_cleansingForm(file, gsub("\\.csv", "", input$file$name), volumes, input$dir, cleanser$cleansingForm, input$encode)
+      if (any(dim(cleanser$dataset) != c(0, 0))) {
+        output_cleansingForm(file, cleanser$fileInfo, volumes, input$dir, cleanser$cleansingForm, input$encode)
       }
     },
     contentType = "application/zip"
@@ -275,5 +350,3 @@ server <- function(input, output, session) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-

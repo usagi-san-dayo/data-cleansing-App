@@ -639,6 +639,7 @@ changeColName <- function(data, colname, refData, rowNumber) {
 
 
 replaceMissVal <- function(data, refData, rowNumber) {
+  options(warn = -1)
   lengthMissVal <- length(unique(data[is.na(as.numeric(data))]))
   tmp <- data
   for (j in 1:lengthMissVal) {
@@ -646,6 +647,7 @@ replaceMissVal <- function(data, refData, rowNumber) {
       data <- replace(data, data == unique(tmp[is.na(as.numeric(tmp))])[j], refData[rowNumber + 1 + j, 4])
     }
   }
+  options(warn = 0)
   return(data)
 }
 
@@ -1044,12 +1046,14 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
 
    fields = list(
      cleansingForm = "list",
-     dataset = "data.frame"
+     dataset = "data.frame",
+     fileInfo = "list"
    ),
 
    methods = list(
      initialize = function() {
        cleansingForm <<- list(numeric = NULL, factor = NULL, Date = NULL)
+       fileInfo <<- list(name = NULL, data = NULL)
      },
 
      mkNumericTable = function(data, index) {
@@ -1174,7 +1178,9 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
      },
 
      replaceMissVal = function(data, refData, rowNumber) {
+       options(warn = -1)
        missVal <- unique(data[is.na(as.numeric(data))])
+       options(warn = 0)
        for (j in seq_len(length(missVal))) {
          if (!is.na(refData[rowNumber + 1 + j, 4])) {
            data <- replace(data, data == missVal[j], refData[rowNumber + 1 + j, 4])
@@ -1517,6 +1523,13 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
      mkCleansingForm = function(dataName, dataPath, numOrFac = 10, leastNumOfDate = 10, fileEncoding = "CP932", filePath) {
        data <- as.data.frame(readData(dataPath, fileEncoding), stringsAsFactors = FALSE)
        dataset <<- data
+       fileInfo$data <<- data
+       if (fileEncoding == "Others") {
+         write.csv(data, paste0(filePath, dataName, ".csv"), row.names = FALSE, fileEncoding = "CP932")
+       }
+       else {
+         write.csv(data, paste0(filePath, dataName, ".csv"), row.names = FALSE, fileEncoding = fileEncoding)
+       }
        tableTime <- c("ColName", "Change the colName")
        tableNumeric <- c("ColName", "Change the colName", rep("", 6))
        tableFactor <- c("ColName", "Change the colName", rep("", 7))
@@ -1533,10 +1546,10 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
        writeTablesOnExcel(tableNumeric, tableFactor, tableTime, dataName, filePath)
      },
 
-     dataCleanser = function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate = 10, fileEncoding = "CP932") {
-       files <- list.files()
+     dataCleanser = function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate = 10, fileEncoding = "CP932", path = "") {
+       files <- list.files(path = path)
        if (any(files == paste0("dataCleansingForm_", dataName, "_.xlsx")) == FALSE) {
-         data <- as.data.frame(readData(dataName, fileEncoding), stringsAsFactors = FALSE)
+         data <- as.data.frame(readData(paste0(path, dataName), fileEncoding), stringsAsFactors = FALSE)
          dataset <<- data
          tableTime <- c("ColName", "Change the colName")
          tableNumeric <- c("ColName", "Change the colName", rep("", 6))
@@ -1552,14 +1565,14 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
            tableNumeric <- tableNum_Fac$num
            tableFactor <- tableNum_Fac$fac
          }
-         writeTablesOnExcel(tableNumeric, tableFactor, tableTime, dataName)
+         writeTablesOnExcel(tableNumeric, tableFactor, tableTime, dataName, filePath = path)
        }
        else {
-         data <- as.data.frame(readData(dataName, fileEncoding))
+         data <- as.data.frame(readData(paste0(path, dataName), fileEncoding))
          dataList <- NULL
          sheetList <- c("numeric", "factor", "Date")
          for (i in seq_len(length(sheetList))) {
-           dataList[[i]] <- openxlsx::read.xlsx(paste0("dataCleansingForm_", dataName, "_.xlsx"), sheet = sheetList[i], colNames = F, skipEmptyRows = FALSE, skipEmptyCols = FALSE, na.strings = c("NA", ""))
+           dataList[[i]] <- openxlsx::read.xlsx(paste0(path, "dataCleansingForm_", dataName, "_.xlsx"), sheet = sheetList[i], colNames = F, skipEmptyRows = FALSE, skipEmptyCols = FALSE, na.strings = c("NA", ""))
          }
          for (i in colnames(data)) {
            if (!is.na(any(dataList[[1]][, 1] == i))) {
