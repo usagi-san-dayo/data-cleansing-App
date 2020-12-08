@@ -234,7 +234,7 @@ isCategorised <- function(cleansingForm, colName) {
   }
   options(warn = -1)
   breaksLabels <- paste0(-Inf, ",", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", Inf)
-  labels <- paste0("<", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", enc2native("\u2267"), mean(na.omit(as.numeric(cleanser$dataset[, colName]))))
+  labels <- paste0("<", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", "\u2265", mean(na.omit(as.numeric(cleanser$dataset[, colName]))))
   if (searchColname(cleansingForm, colName)[3, 6] == breaksLabels & searchColname(cleansingForm, colName)[3, 8] == labels) {
     return(TRUE)    
   }
@@ -519,7 +519,7 @@ categorise <- function(colName, categorise) {
     for (j in seq_len(length(cleanser$cleansingForm[[i]]))) {
       if (cleanser$cleansingForm[[i]][[j]]$colname == colName) {
         breaksLabels <- paste0(-Inf, ",", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", Inf)
-        labels <- paste0("<", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", enc2native("\u2267"), mean(na.omit(as.numeric(cleanser$dataset[, colName]))))
+        labels <- paste0("<", mean(na.omit(as.numeric(cleanser$dataset[, colName]))), ",", "\u2265", mean(na.omit(as.numeric(cleanser$dataset[, colName]))))
         if (categorise) {
           cleanser$cleansingForm[[i]][[j]]$table[row_startTable, col_startTable] <<- breaksLabels
           cleanser$cleansingForm[[i]][[j]]$table[row_startTable, col_startTable + 2] <<- labels 
