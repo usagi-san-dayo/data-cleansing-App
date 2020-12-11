@@ -27,6 +27,3 @@ ElectronShinyApp/
 ```
 To launch this app, go down to directory ElectronShinyApp/, and you'll find a executable file **electron-quick-start.exe**. Doubleclick it, soon a Electron starts running, and after loading all stuffs on this app, The editor'll be ready to use. 
 
-## How to use
-For usage of this app, please visit my web-site: <https://multivariate-statistics.com/data-cleanser-app/>
-
