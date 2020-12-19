@@ -580,50 +580,58 @@ mkFactorTable <- function(data, index) {
   return(table)
 }
 
-dataClassifier <- function(data, index, dateIndex, dateList) {
-  if (length(dateList[[dateIndex]]) > 1) {
-    form1 <- paste0("%m", dateList[[dateIndex]][2], "%d", dateList[[dateIndex]][3], "%Y", dateList[[dateIndex]][1])
-    form2 <- paste0("%Y", dateList[[dateIndex]][1], "%m", dateList[[dateIndex]][2], "%d", dateList[[dateIndex]][3])
-
-    charData1 <- gsub(dateList[[dateIndex]][2], dateList[[dateIndex]][1], data[, index])
-    charData1 <- gsub(dateList[[dateIndex]][3], dateList[[dateIndex]][1], charData1)
+dateClassifier <- function(data, index) {
+  DateFormats <- list(c("Y", "m", "d"), c("Y", "d", "m"), c("m", "Y", "d"), c("m", "d", "Y"), c("d", "Y", "m"), c("d", "m", "Y"))
+  formatAndDate <- NULL
+  delimiter <- lapply(strsplit(data[, index], ""), function(x) {
+    return(x[grep("[^0-9]", x)])
+  })
+  indexDelim <- lapply(strsplit(data[, index], ""), function(x) {
+    dateList <- list()
+    delStr <- c(0, grep("[^0-9]", x))
+    for (i in seq_len(length(delStr))) {
+      if (i == length(delStr) & length(delStr) < 4) {
+        dateList[[i]] <- (delStr[i] + 1) : length(x)
+      }
+      else if (i < length(delStr)) {
+        dateList[[i]] <- (delStr[i] + 1) : (delStr[i + 1] - 1)
+      }
+    }
+    return(list(index = dateList, delim = x[grep("[^0-9]", x)], indexDelim = grep("[^0-9]", x), data = x))
+  })
+  arrangedIndex <- lapply(indexDelim, function(x) {
+    index <- NULL
+    for (i in seq_len(2)) {
+      index <- append(index, c(x$index[[order(x$delim)[i]]], x$indexDelim[order(x$delim)[i]]))
+    }
+    if (length(x$delim) == 2) {
+      index <- append(index, x$index[[3]])
+    }
+    else {
+      index <- append(index, x$index[[order(x$delim[3])]])
+    }
+    return(list(index = index, data = x$data))
+  })
+  data[, index] <- unlist(lapply(arrangedIndex, function(x) {
+    return(paste(x$data[x$index], collapse = ""))
+  }))
+  
+  for (formatStr in DateFormats) {
+    format <- paste0("%", formatStr[1], "-%", formatStr[2], "-%", formatStr[3])
     options(warn = -1)
-    dateData <- replace(charData1, charData1 == "", NA)
-
-    date_dataFrame <- as.data.frame(strsplit(as.character(dateData), dateList[[dateIndex]][1]))
-    charData1 <- paste0(formatC(as.numeric(date_dataFrame[3, ]), width = 4, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[1, ]), width = 2, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[2, ]), width = 2, flag = "0"))
-    options(warn = 0)
-    charData2 <- gsub(dateList[[dateIndex]][2], dateList[[dateIndex]][1], data[, index])
-    charData2 <- gsub(dateList[[dateIndex]][3], dateList[[dateIndex]][1], charData2)
-    options(warn = -1)
-    dateData <- replace(charData2, charData2 == "", NA)
-
-    date_dataFrame <- as.data.frame(strsplit(as.character(dateData), dateList[[dateIndex]][1]))
-    charData2 <- paste0(formatC(as.numeric(date_dataFrame[1, ]), width = 4, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[2, ]), width = 2, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[3, ]), width = 2, flag = "0"))
-    options(warn = 0)
-  }
-  else {
-    delimiter <-  gsub("\\", "", dateList[[dateIndex]][1], fixed = TRUE)
-    form1 <- paste0("%m", delimiter, "%d", delimiter, "%Y")
-    form2 <- paste0("%Y", delimiter, "%m", delimiter, "%d")
-    options(warn = -1)
+    
     dateData <- replace(data[, index], data[, index] == "", NA)
-
-    date_dataFrame <- as.data.frame(strsplit(as.character(dateData), dateList[[dateIndex]][1]))
-    charData1 <- paste0(formatC(as.numeric(date_dataFrame[3, ]), width = 4, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[1, ]), width = 2, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[2, ]), width = 2, flag = "0"))
-
-    charData2 <- paste0(formatC(as.numeric(date_dataFrame[1, ]), width = 4, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[2, ]), width = 2, flag = "0"), "-",
-                        formatC(as.numeric(date_dataFrame[3, ]), width = 2, flag = "0"))
+    dateData <- gsub("[^0-9]", "-", as.character(dateData))
+    dateData <- replace(dateData, nchar(gsub("[^-]", "", dateData)) != 2 | lapply(strsplit(dateData, "-"), length) != 3, NA)
+    date_dataFrame <- as.data.frame(strsplit(dateData, "-"), stringsAsFactors = FALSE)
+    YmdOrder <- c(match("Y", formatStr), match("m", formatStr), match("d", formatStr))
+    charData <- paste0(formatC(as.numeric(date_dataFrame[YmdOrder[1], ]), width = 4, flag = "0"), "-",
+                       formatC(as.numeric(date_dataFrame[YmdOrder[2], ]), width = 2, flag = "0"), "-",
+                       formatC(as.numeric(date_dataFrame[YmdOrder[3], ]), width = 2, flag = "0"))
     options(warn = 0)
+    formatAndDate[[length(formatAndDate) + 1]] <- list(format = format, date = charData)
   }
-  return(list(list(form = form1, date = charData1), list(form = form2, date = charData2)))
+  return(formatAndDate)
 }
 
 changeColName <- function(data, colname, refData, rowNumber) {
@@ -945,40 +953,48 @@ cleansFactor <- function(data, index, refData, append) {
   return(data)
 }
 
-cleansDate <- function(data, index, refData, dateFormat) {
+cleansDate <- function(data, index, refData) {
   if (any(refData[, 1] == index)) {
     asDatedVector <- rep(FALSE, nrow(data))
-    dateList <- dateFormat
     options(warn = -1)
     rowNumber <- as.numeric(rownames(refData[refData[, 1] == index & !is.na(refData[, 1]), ]))
     colnames(data)[colnames(data) == index] <- changeColName(data, index, refData, rowNumber)
     index <- changeColName(data, index, refData, rowNumber)
-    for (j in seq_len(length(dateList))) {
-      tmp <- NULL
-      for (k in strsplit(as.character(data[, index]), dateList[[j]][1])) {
-        tmp <- append(tmp, length(k))
-      }
-      if (all(tmp[grep(dateList[[j]][1], data[, index])] == 3) | (length(dateList[[j]]) > 1 & all(tmp[grep(dateList[[j]][1], data[, index])] == 2))) {
-        formCharData <- dataClassifier(data, index, j, dateList)
-        rowData <- as.numeric(rownames(data[as.character(as.Date(data[, index], form = formCharData[[1]]$form, origin = "1970-01-01")) == formCharData[[1]]$date & !is.na(as.character(as.Date(data[, index], form = formCharData[[1]]$form, origin = "1970-01-01")) == formCharData[[1]]$date), ]))
-        if (length(rowData) > 0) {
-          if (all(asDatedVector[rowData] == FALSE)) {
-            data[rowData, index] <- formCharData[[1]]$date[rowData]
-            asDatedVector[rowData] <- TRUE
-          }
+    formCharData <- dateClassifier(data, index)
+    for (i in list(c(1, 2), c(3, 5), c(4, 6))) {
+      isFirstFormat <- !is.na(isCorrectFormat(formCharData[[i[1]]])) & isCorrectFormat(formCharData[[i[1]]]) & !asDatedVector
+      isSecondFormat <- !is.na(isCorrectFormat(formCharData[[i[2]]])) & isCorrectFormat(formCharData[[i[2]]]) & !asDatedVector
+      if (length(data[isFirstFormat, index]) > 0 | length(data[isSecondFormat, index]) > 0) {
+        if (length(data[isFirstFormat, index]) > length(data[isSecondFormat, index])) {
+          data[isFirstFormat, index] <- formCharData[[i[1]]]$date[isFirstFormat]
+          asDatedVector[isFirstFormat] <- TRUE
         }
-        rowData <- as.numeric(rownames(data[as.character(as.Date(data[, index], form = formCharData[[2]]$form, origin = "1970-01-01")) == formCharData[[2]]$date & !is.na(as.character(as.Date(data[, index], form = formCharData[[2]]$form, origin = "1970-01-01")) == formCharData[[2]]$date), ]))
-        if (length(rowData) > 0) {
-          if (all(asDatedVector[rowData] == FALSE)) {
-            data[rowData, index] <- formCharData[[2]]$date[rowData]
-            asDatedVector[rowData] <- TRUE
-          }
+        else {
+          data[isSecondFormat, index] <- formCharData[[i[2]]]$date[isSecondFormat]
+          asDatedVector[isSecondFormat] <- TRUE
         }
       }
     }
     options(warn = 0)
   }
   return(data)
+}
+
+isCorrectFormat <- function(dateAsFormat) {
+  splitedFCD <- strsplit(dateAsFormat$date, "-")
+  options(warn = -1)
+  correctDate <- unlist(lapply(splitedFCD, function(x) {
+    conditionFormat <- nchar(x[1]) == 4 & nchar(x[2]) == 2 & nchar(x[3]) == 2
+    conditionUpper <- as.numeric(x[2]) < 13 & as.numeric(x[3] < 32)
+    if (conditionFormat & conditionUpper) {
+      return(TRUE)
+    }
+    else {
+      return(FALSE)
+    }
+  }))
+  options(warn = 0)
+  return(correctDate)
 }
 
 #' Cleansing the dataset on a csv-file to change its form to more arranged one to handle.
@@ -1122,10 +1138,10 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
          dateList <- list()
          delStr <- c(0, grep("[^0-9]", x))
          for (i in seq_len(length(delStr))) {
-           if (i == length(delStr)) {
+           if (i == length(delStr) & length(delStr) < 4) {
              dateList[[i]] <- (delStr[i] + 1) : length(x)
            }
-           else {
+           else if (i < length(delStr)) {
              dateList[[i]] <- (delStr[i] + 1) : (delStr[i + 1] - 1)
            }
          }
@@ -1155,7 +1171,7 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
          dateData <- replace(data[, index], data[, index] == "", NA)
          dateData <- gsub("[^0-9]", "-", as.character(dateData))
          dateData <- replace(dateData, nchar(gsub("[^-]", "", dateData)) != 2 | lapply(strsplit(dateData, "-"), length) != 3, NA)
-         date_dataFrame <- as.data.frame(strsplit(dateData, "-"))
+         date_dataFrame <- as.data.frame(strsplit(dateData, "-"), stringsAsFactors = FALSE)
          YmdOrder <- c(match("Y", formatStr), match("m", formatStr), match("d", formatStr))
          charData <- paste0(formatC(as.numeric(date_dataFrame[YmdOrder[1], ]), width = 4, flag = "0"), "-",
                             formatC(as.numeric(date_dataFrame[YmdOrder[2], ]), width = 2, flag = "0"), "-",
@@ -1376,7 +1392,7 @@ dataCleanser <- function(dataName, append = FALSE, numOrFac = 10, leastNumOfDate
 
      mkTableNum_Fac = function(data, index, numOrFac, tableNumeric, tableFactor) {
        options(warn = -1)
-       charEqualNum <-  as.character(as.numeric(data[, index])) == as.numeric(data[, index]) #todo check
+       charEqualNum <-  as.character(as.numeric(data[, index])) == as.numeric(data[, index])
        options(warn = 0)
        if (length(na.omit(data[charEqualNum == FALSE, index])) == 0 &  length(na.omit(data[charEqualNum == TRUE, index])) > 0 & nlevels(as.factor(data[, index])) > nrow(data) / numOrFac) {
          numTab <- mkNumericTable(data, index)
